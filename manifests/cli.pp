@@ -3,24 +3,10 @@
 # Allow Jenkins commands to be issued from the command line
 #
 class jenkins::cli {
+
   if $caller_module_name != $module_name {
     fail("Use of private class ${name} by ${caller_module_name}")
   }
-
-  include ::jenkins
-
-  # XXX Classes/defines which include the jenkins::cli class assume that they
-  # can use the cli even if $::jenkins::cli == false.  This breaks the top
-  # level anchor pattern.  The cli param should either be deprecated and
-  # essentially hardwired to true or attempting to use cli functionality
-  # without this param set should fail; either option is a backwards
-  # incompatible change.
-  #
-  # As an attempt to preserve backwards compatibility, there are includes and
-  # resource relationships being scattered throughout this module.
-  Class['jenkins::service'] ->
-    Class['jenkins::cli'] ->
-      Anchor['jenkins::end']
 
   $jar = "${jenkins::libdir}/jenkins-cli.jar"
   $extract_jar = "jar -xf ${jenkins::libdir}/jenkins.war WEB-INF/jenkins-cli.jar"
@@ -41,7 +27,6 @@ class jenkins::cli {
   }
 
   $port = jenkins_port()
-  $prefix = jenkins_prefix()
 
   # Provide the -i flag if specified by the user.
   if $::jenkins::cli_ssh_keyfile {
@@ -55,7 +40,7 @@ class jenkins::cli {
     delete_undef_values([
       'java',
       "-jar ${::jenkins::cli::jar}",
-      "-s http://localhost:${port}${prefix}",
+      "-s http://localhost:${port}",
       $auth_arg,
     ]),
     ' '
@@ -70,8 +55,4 @@ class jenkins::cli {
     refreshonly => true,
     require     => File[$jar],
   }
-
-  # jenkins::cli::reload should be included only after $::jenkins::cli::cmd is
-  # defined
-  include ::jenkins::cli::reload
 }

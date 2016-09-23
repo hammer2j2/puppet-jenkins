@@ -1,15 +1,15 @@
 # Parameters:
-#
+
 # version = 'installed' (Default)
 #   Will NOT update jenkins to the most recent version.
 #
 # version = 'latest'
 #    Will automatically update the version of jenkins to the current version available via your package manager.
 #
-# lts = false
+# lts = false  (Default)
 #   Use the most up to date version of jenkins
 #
-# lts = true (Default)
+# lts = true
 #   Use LTS verison of jenkins
 #
 # port = 8080 (default)
@@ -28,7 +28,7 @@
 #
 # direct_download = 'http://...'
 #   Ignore repostory based package installation and download and install
-#   package directly.  Leave as `undef` (the default) to download using your
+#   package directly.  Leave as `false` (the default) to download using your
 #   OS package manager
 #
 # package_cache_dir  = '/var/cache/jenkins_pkgs'
@@ -44,28 +44,8 @@
 # config_hash = undef (Default)
 #   Hash with config options to set in sysconfig/jenkins defaults/jenkins
 #
-# manage_datadirs = true (default)
-#   true if this module should manage the local state dir, plugins dir and jobs dir
-#
-# localstatedir = '/var/lib/jenkins' (default)
-#   base path, in the autoconf sense, for jenkins local data including jobs and
-#   plugins
-#
 # executors = undef (Default)
 #   Integer number of executors on the Jenkin's master.
-#
-# slaveagentport = undef (Default)
-#   Integer number of portnumber for the slave agent.
-#
-# manage_user = true (default)
-#
-# user = 'jenkins' (default)
-#`  system user that owns the jenkins master's files
-#
-# manage_group = true (default)
-#
-# group = 'jenkins' (default)
-#`  system group that owns the jenkins master's files
 #
 # Example use
 #
@@ -118,7 +98,7 @@
 #       password: 'pass1'
 #       email: 'user1@example.com'
 #
-# configure_firewall = false (default)
+# configure_firewall = undef (default)
 #   For folks that want to manage the puppetlabs firewall module.
 #    - If it's not present in the catalog, nothing happens.
 #    - If it is, you need to explicitly set this true / false.
@@ -131,7 +111,7 @@
 #   - Jenkins requires a JRE
 #
 #
-# cli = true (default)
+# cli = false (default)
 #   - force installation of the jenkins CLI jar to $libdir/cli/jenkins-cli.jar
 #   - the cli is automatically installed when needed by components that use it,
 #     such as the user and credentials types, and the security class
@@ -163,91 +143,58 @@
 #   - Accepts input as array only.
 #   - Only effective if "proxy_host" and "proxy_port" are set.
 #
-# user = 'jenkins' (default)
-#
-# group = 'jenkins' (default)
-#
 #
 class jenkins(
   $version            = $jenkins::params::version,
   $lts                = $jenkins::params::lts,
   $repo               = $jenkins::params::repo,
   $package_name       = $jenkins::params::package_name,
-  $direct_download    = $::jenkins::params::direct_download,
+  $direct_download    = false,
   $package_cache_dir  = $jenkins::params::package_cache_dir,
   $package_provider   = $jenkins::params::package_provider,
   $service_enable     = $jenkins::params::service_enable,
   $service_ensure     = $jenkins::params::service_ensure,
-  $service_provider   = $jenkins::params::service_provider,
   $config_hash        = {},
   $plugin_hash        = {},
   $job_hash           = {},
   $user_hash          = {},
-  $configure_firewall = false,
+  $configure_firewall = undef,
   $install_java       = $jenkins::params::install_java,
   $repo_proxy         = undef,
   $proxy_host         = undef,
   $proxy_port         = undef,
   $no_proxy_list      = undef,
-  $cli                = true,
+  $cli                = undef,
   $cli_ssh_keyfile    = undef,
   $cli_tries          = $jenkins::params::cli_tries,
   $cli_try_sleep      = $jenkins::params::cli_try_sleep,
   $port               = $jenkins::params::port,
   $libdir             = $jenkins::params::libdir,
-  $manage_datadirs    = $jenkins::params::manage_datadirs,
-  $localstatedir      = $::jenkins::params::localstatedir,
   $executors          = undef,
-  $slaveagentport     = undef,
-  $manage_user        = $::jenkins::params::manage_user,
-  $user               = $::jenkins::params::user,
-  $manage_group       = $::jenkins::params::manage_group,
-  $group              = $::jenkins::params::group,
 ) inherits jenkins::params {
 
-  validate_string($version)
-  validate_bool($lts)
-  validate_bool($repo)
-  validate_string($package_name)
-  validate_string($direct_download)
-  validate_absolute_path($package_cache_dir)
-  validate_string($package_provider)
-  validate_bool($service_enable)
-  validate_re($service_ensure, '^running$|^stopped$')
-  validate_string($service_provider)
-  validate_hash($config_hash)
-  validate_hash($plugin_hash)
-  validate_hash($job_hash)
-  validate_hash($user_hash)
-  validate_bool($configure_firewall)
-  validate_bool($install_java)
-  validate_string($repo_proxy)
-  validate_string($proxy_host)
-  if $proxy_port { validate_integer($proxy_port) }
-  if $no_proxy_list { validate_array($no_proxy_list) }
-  validate_bool($cli)
-  if $cli_ssh_keyfile { validate_absolute_path($cli_ssh_keyfile) }
-  validate_integer($cli_tries)
-  validate_integer($cli_try_sleep)
-  validate_integer($port)
-  validate_absolute_path($libdir)
-  validate_bool($manage_datadirs)
-  validate_absolute_path($localstatedir)
-  if $executors { validate_integer($executors) }
-  if $slaveagentport { validate_integer($slaveagentport) }
-  validate_bool($manage_user)
-  validate_string($user)
-  validate_bool($manage_group)
-  validate_string($group)
+  validate_bool($lts, $install_java, $repo)
+  validate_hash($config_hash, $plugin_hash)
 
-  $plugin_dir = "${localstatedir}/plugins"
-  $job_dir = "${localstatedir}/jobs"
+  if $configure_firewall {
+    validate_bool($configure_firewall)
+  }
+
+  if $no_proxy_list {
+    validate_array($no_proxy_list)
+  }
+
+  if $executors {
+    validate_integer($executors)
+  }
 
   anchor {'jenkins::begin':}
   anchor {'jenkins::end':}
 
   if $install_java {
-    include ::java
+    class {'java':
+      distribution => 'jdk'
+    }
   }
 
   if $direct_download {
@@ -274,13 +221,7 @@ class jenkins(
       require => Package['jenkins'],
       notify  => Service['jenkins']
     }
-
-    # param format needed by puppet/archive
-    $proxy_server = "http://${jenkins::proxy_host}:${jenkins::proxy_port}"
-  } else {
-    $proxy_server = undef
   }
-
 
   include jenkins::service
 
@@ -294,7 +235,7 @@ class jenkins(
 
   if $cli {
     include jenkins::cli
-    include jenkins::cli_helper
+    include jenkins::cli::reload
   }
 
   if $executors {
@@ -308,17 +249,6 @@ class jenkins(
         Class['jenkins::jobs']
   }
 
-  if ($slaveagentport != undef) {
-    jenkins::cli::exec { 'set_slaveagent_port':
-      command => ['set_slaveagent_port', $slaveagentport],
-      unless  => "[ \$(\$HELPER_CMD get_slaveagent_port) -eq ${slaveagentport} ]"
-    }
-
-    Class['jenkins::cli'] ->
-      Jenkins::Cli::Exec['set_slaveagent_port'] ->
-        Class['jenkins::jobs']
-  }
-
   Anchor['jenkins::begin'] ->
     Class[$jenkins_package_class] ->
       Class['jenkins::config'] ->
@@ -326,6 +256,15 @@ class jenkins(
           Class['jenkins::service'] ->
             Class['jenkins::jobs'] ->
               Anchor['jenkins::end']
+
+  if $cli {
+    Anchor['jenkins::begin'] ->
+      Class['jenkins::service'] ->
+        Class['jenkins::cli'] ->
+          Class['jenkins::cli::reload'] ->
+            Class['jenkins::jobs'] ->
+              Anchor['jenkins::end']
+  }
 
   if $install_java {
     Anchor['jenkins::begin'] ->
